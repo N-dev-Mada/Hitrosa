@@ -1,6 +1,6 @@
 <div align="center">
 
-# 📒 CarnetPro
+# 📒 Hitrosa
 ### Carnet Numérique de Crédit & Registre Financier Infalsifiable (100% Offline-First)
 
 [![Android](https://img.shields.io/badge/Platform-Android%2014%2B%20(SDK%2024%E2%80%9336)-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://developer.android.com)
@@ -28,7 +28,7 @@ Dans le commerce de quartier et l'économie de proximité (*épiceries, grossist
 - ❌ **Cas des mandataires** : un client habitué envoie un proche (*enfant, frère, employé*) chercher des denrées à son nom, sans preuve matérielle de retrait.
 - ❌ **Calculs d'apothicaire manuels** : erreurs d'addition sur les soldes cumulés, retards non suivis.
 
-**CarnetPro** transpose ce carnet traditionnel dans une application Android native, **100 % autonome hors-ligne**, ultra-rapide à la saisie, et dotée d'un **registre immuable cryptographiquement scellé** garantissant une valeur probante incontestable.
+**Hitrosa** transpose ce carnet traditionnel dans une application Android native, **100 % autonome hors-ligne**, ultra-rapide à la saisie, et dotée d'un **registre immuable cryptographiquement scellé** garantissant une valeur probante incontestable.
 
 ---
 
@@ -50,7 +50,7 @@ Dans le commerce de quartier et l'économie de proximité (*épiceries, grossist
 
 ## 🏗️ Architecture Logicielle & Stack Technique
 
-CarnetPro adopte les recommandations officielles **Google Android App Quality Architecture** : **Clean Architecture MVVM**, **Unidirectional Data Flow (UDF)** et persistance **Offline-First**.
+Hitrosa adopte les recommandations officielles **Google Android App Quality Architecture** : **Clean Architecture MVVM**, **Unidirectional Data Flow (UDF)** et persistance **Offline-First**.
 
 ```
                            ┌────────────────────────────┐
@@ -92,52 +92,9 @@ CarnetPro adopte les recommandations officielles **Google Android App Quality Ar
 
 ---
 
-## 📸 Captures d'Écran
-
-<div align="center">
-  <table>
-    <tr>
-      <td align="center" width="33%">
-        <b>Tableau de Bord Principal</b><br>
-        <sub>Créances en Ariary & statut SHA-256</sub><br><br>
-        <img src="docs/screenshots/home_screen.png" width="240" alt="Tableau de bord CarnetPro" onerror="this.src='https://placehold.co/400x850/0F172A/FFF?text=Tableau+de+Bord+Ariary';"/>
-      </td>
-      <td align="center" width="33%">
-        <b>Fiche Client & Historique</b><br>
-        <sub>Dette en cours & opérations scellées</sub><br><br>
-        <img src="docs/screenshots/client_detail.png" width="240" alt="Fiche client CarnetPro" onerror="this.src='https://placehold.co/400x850/0F172A/FFF?text=Fiche+Client+Detail';"/>
-      </td>
-      <td align="center" width="33%">
-        <b>Nouveau Crédit & Signature</b><br>
-        <sub>Saisie guidée & pad tactile</sub><br><br>
-        <img src="docs/screenshots/new_credit.png" width="240" alt="Saisie de crédit CarnetPro" onerror="this.src='https://placehold.co/400x850/0F172A/FFF?text=Signature+Tactile';"/>
-      </td>
-    </tr>
-    <tr>
-      <td align="center" width="33%">
-        <b>Règlement en Caisse</b><br>
-        <sub>Action Tout Solder & Puces rapides</sub><br><br>
-        <img src="docs/screenshots/payment_screen.png" width="240" alt="Règlement CarnetPro" onerror="this.src='https://placehold.co/400x850/059669/FFF?text=Tout+Solder+(Ar)';"/>
-      </td>
-      <td align="center" width="33%">
-        <b>Reçu WhatsApp Généré</b><br>
-        <sub>Preuve légale partageable</sub><br><br>
-        <img src="docs/screenshots/receipt_dialog.png" width="240" alt="Reçu WhatsApp CarnetPro" onerror="this.src='https://placehold.co/400x850/0F172A/FFF?text=Reçu+WhatsApp';"/>
-      </td>
-      <td align="center" width="33%">
-        <b>Journal d'Audit Cryptographique</b><br>
-        <sub>Explorateur de blocs & intégrité</sub><br><br>
-        <img src="docs/screenshots/audit_screen.png" width="240" alt="Audit de la chaîne CarnetPro" onerror="this.src='https://placehold.co/400x850/1E293B/FFF?text=Audit+Blockchain';"/>
-      </td>
-    </tr>
-  </table>
-</div>
-
----
-
 ## 🔐 Sécurité & Immuabilité du Registre
 
-L'intégrité financière de CarnetPro repose sur une double barrière physique et algorithmique :
+L'intégrité financière de Hitrosa repose sur une double barrière physique et algorithmique :
 
 ### 1. Triggers SQL d'Interdiction (Immuabilité SQLite)
 À la création de la base de données locale, des déclencheurs stricts sont enregistrés au niveau du moteur SQLite :
@@ -179,8 +136,8 @@ L'écran **Journal d'Audit** permet de recalculer en temps réel l'ensemble de l
 
 1. **Cloner le dépôt :**
    ```bash
-   git clone https://github.com/votre-utilisateur/CarnetPro.git
-   cd CarnetPro
+   git clone https://github.com/votre-utilisateur/Hitrosa.git
+   cd Hitrosa
    ```
 
 2. **Ouvrir le projet dans Android Studio :**
