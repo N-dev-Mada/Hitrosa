@@ -1,0 +1,69 @@
+# ==============================================================================
+# Git Ignore for Android Studio / Kotlin / Jetpack Compose / Gradle Projects
+# ==============================================================================
+
+# Built application files
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Files for the ART/Dalvik VM
+*.class
+
+# Java / JVM package files
+*.jar
+*.war
+*.ear
+
+# Gradle files and caches
+.gradle/
+build/
+*/build/
+bin/
+gen/
+out/
+.kotlin/
+
+# Local configuration file (sdk path, etc)
+local.properties
+/local.properties
+
+# Log files
+*.log
+
+# Android Studio / IntelliJ IDEA
+*.iml
+.idea/
+!.idea/codeStyles/
+!.idea/copyright/
+!.idea/vcs.xml
+*.ipr
+*.iws
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# Keystore & Signing secrets
+*.jks
+*.keystore
+debug.keystore
+debug.keystore.base64
+
+# Environment variables & secrets
+.env
+!.env.example
+
+# Android Profiling & Captures
+/captures/
+*.hprof
+
+# Native build artifacts
+.externalNativeBuild/
+.cxx/
+ndkBuild/
+
+# KSP generated files
+**/build/generated/ksp/

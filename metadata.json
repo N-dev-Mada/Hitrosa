@@ -1,0 +1,6 @@
+{
+  "name": "CarnetPro - Crédits Infalsifiables",
+  "description": "Carnet de crédit numérique hors-ligne et infalsifiable pour commerçants avec chaînage cryptographique SHA-256 et signature tactile.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
