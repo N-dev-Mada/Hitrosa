@@ -228,6 +228,18 @@ fun TransactionCard(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     ) {
+                        if (!tx.emissairePhotoUri.isNullOrBlank() && File(tx.emissairePhotoUri).exists()) {
+                            AsyncImage(
+                                model = File(tx.emissairePhotoUri),
+                                contentDescription = "Photo mandataire",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(26.dp)
+                                    .clip(CircleShape)
+                                    .border(1.dp, Color(0xFFD97706), CircleShape)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                        }
                         Text(
                             text = "Mandataire : ${tx.emissaireNom} (${tx.emissaireLien ?: "Délégué"})",
                             style = MaterialTheme.typography.labelSmall,

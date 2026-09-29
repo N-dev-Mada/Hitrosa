@@ -56,6 +56,8 @@ data class TransactionEntity(
     val emissaireTelephone: String? = null,
     @ColumnInfo(name = "emissaire_confirmation")
     val emissaireConfirmation: String? = null,
+    @ColumnInfo(name = "emissaire_photo_uri")
+    val emissairePhotoUri: String? = null,
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis()
 )

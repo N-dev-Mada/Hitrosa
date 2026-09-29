@@ -1,13 +1,18 @@
 package com.example.ui.screens
 
+import android.graphics.Bitmap
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,7 +37,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Lock
@@ -84,7 +91,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.layout.ContentScale
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
+import com.example.ui.components.ImageHelper
 import com.example.ui.components.TouchSignaturePad
 import com.example.ui.theme.CreditRed
 import com.example.ui.theme.CreditRedContainer
@@ -94,15 +104,16 @@ import com.example.ui.theme.PaidGreenContainer
 import com.example.ui.theme.WarningAmber
 import com.example.ui.theme.WarningAmberLight
 import com.example.ui.viewmodel.CarnetViewModel
+import java.io.File
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 data class InvoiceItemDraft(
-    var designation: String = "",
-    var prixUnitaire: String = "",
-    var quantite: String = "1"
+    val designation: String = "",
+    val prixUnitaire: String = "",
+    val quantite: String = "1"
 )
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -132,6 +143,25 @@ fun NewCreditScreen(
     var emissaireLien by remember { mutableStateOf("Enfant") }
     var emissaireTelephone by remember { mutableStateOf("") }
     var emissaireConfirmation by remember { mutableStateOf("Appel téléphonique reçu du client") }
+    var emissairePhotoUri by remember { mutableStateOf<String?>(null) }
+
+    val emissaireCameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap: Bitmap? ->
+        if (bitmap != null) {
+            val savedPath = ImageHelper.saveBitmapToFile(context, bitmap, "mandataire_photo")
+            emissairePhotoUri = savedPath
+        }
+    }
+
+    val emissairePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            val savedPath = ImageHelper.saveUriToFile(context, uri, "mandataire_photo")
+            emissairePhotoUri = savedPath
+        }
+    }
 
     // Due date offset
     var dueDaysOffset by remember { mutableStateOf(15) }
@@ -454,6 +484,111 @@ fun NewCreditScreen(
                                     shape = RoundedCornerShape(12.dp),
                                     modifier = Modifier.fillMaxWidth()
                                 )
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = "Photo du mandataire (OBLIGATOIRE) *",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (emissairePhotoUri == null) CreditRed else MaterialTheme.colorScheme.primary
+                                    )
+                                    if (emissairePhotoUri != null) {
+                                        Surface(
+                                            color = PaidGreenContainer,
+                                            shape = RoundedCornerShape(6.dp)
+                                        ) {
+                                            Text(
+                                                text = "✓ Photo ajoutée",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = PaidGreen,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                if (emissairePhotoUri != null && File(emissairePhotoUri!!).exists()) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                                            .padding(8.dp)
+                                    ) {
+                                        AsyncImage(
+                                            model = File(emissairePhotoUri!!),
+                                            contentDescription = "Photo du mandataire",
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier
+                                                .size(60.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = "Photo enregistrée",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = PaidGreen
+                                            )
+                                            Text(
+                                                text = "Preuve d'identité prête à sceller",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        IconButton(
+                                            onClick = {
+                                                emissairePhotoUri = null
+                                            }
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.DeleteOutline,
+                                                contentDescription = "Supprimer la photo",
+                                                tint = MaterialTheme.colorScheme.error
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        OutlinedButton(
+                                            onClick = {
+                                                emissaireCameraLauncher.launch(null)
+                                            },
+                                            shape = RoundedCornerShape(10.dp),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Icon(imageVector = Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Prendre photo", style = MaterialTheme.typography.labelSmall)
+                                        }
+                                        OutlinedButton(
+                                            onClick = {
+                                                emissairePickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                            },
+                                            shape = RoundedCornerShape(10.dp),
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            Icon(imageVector = Icons.Default.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Depuis galerie", style = MaterialTheme.typography.labelSmall)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -513,7 +648,7 @@ fun NewCreditScreen(
                                 ) {
                                     OutlinedTextField(
                                         value = draft.designation,
-                                        onValueChange = { draft.designation = it },
+                                        onValueChange = { items[index] = draft.copy(designation = it) },
                                         placeholder = { Text("Article (ex: Sac de riz, Sucre...)") },
                                         singleLine = true,
                                         shape = RoundedCornerShape(10.dp),
@@ -550,7 +685,7 @@ fun NewCreditScreen(
                                 ) {
                                     OutlinedTextField(
                                         value = draft.prixUnitaire,
-                                        onValueChange = { draft.prixUnitaire = it },
+                                        onValueChange = { items[index] = draft.copy(prixUnitaire = it) },
                                         placeholder = { Text("Prix unit. ($currency)") },
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         singleLine = true,
@@ -564,7 +699,7 @@ fun NewCreditScreen(
 
                                     OutlinedTextField(
                                         value = draft.quantite,
-                                        onValueChange = { draft.quantite = it },
+                                        onValueChange = { items[index] = draft.copy(quantite = it) },
                                         placeholder = { Text("Qté") },
                                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         singleLine = true,
@@ -809,9 +944,15 @@ fun NewCreditScreen(
                             Toast.makeText(context, "Veuillez choisir un client", Toast.LENGTH_SHORT).show()
                             return@Button
                         }
-                        if (isEmissaire && emissaireNom.isBlank()) {
-                            Toast.makeText(context, "Veuillez renseigner le nom du mandataire", Toast.LENGTH_SHORT).show()
-                            return@Button
+                        if (isEmissaire) {
+                            if (emissaireNom.isBlank()) {
+                                Toast.makeText(context, "Veuillez renseigner le nom du mandataire", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+                            if (emissairePhotoUri.isNullOrBlank()) {
+                                Toast.makeText(context, "Une photo du mandataire est OBLIGATOIRE pour un prêt par mandataire.", Toast.LENGTH_LONG).show()
+                                return@Button
+                            }
                         }
                         if (grandTotal <= 0L) {
                             Toast.makeText(context, "Veuillez saisir au moins un article avec son prix", Toast.LENGTH_SHORT).show()
@@ -842,6 +983,7 @@ fun NewCreditScreen(
                             emissaireLien = if (isEmissaire) emissaireLien else null,
                             emissaireTelephone = if (isEmissaire) emissaireTelephone.ifBlank { null } else null,
                             emissaireConfirmation = if (isEmissaire) emissaireConfirmation else null,
+                            emissairePhotoUri = if (isEmissaire) emissairePhotoUri else null,
                             onSuccess = {
                                 isSubmitting = false
                                 Toast.makeText(context, "Crédit scellé avec succès !", Toast.LENGTH_SHORT).show()

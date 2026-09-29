@@ -3,6 +3,6 @@
     <item
         android:width="66dp"
         android:height="66dp"
-        android:drawable="@drawable/app_icon_carnet_1790434509471"
+        android:drawable="@drawable/img_hitrosa_logo_1790674724593"
         android:gravity="center" />
 </layer-list>

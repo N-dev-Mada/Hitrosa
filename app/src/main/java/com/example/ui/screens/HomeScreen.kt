@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +32,7 @@ import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -59,6 +61,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
@@ -66,6 +69,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import com.example.ui.components.ClientCard
 import com.example.ui.components.WhatsAppHelper
 import com.example.ui.theme.BrandSlate
@@ -78,6 +82,7 @@ import com.example.ui.theme.PaidGreenContainer
 import com.example.ui.theme.PaidGreenLight
 import com.example.ui.viewmodel.CarnetViewModel
 import com.example.ui.viewmodel.ClientFilter
+import java.io.File
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -86,7 +91,7 @@ import java.util.Locale
 fun HomeScreen(
     viewModel: CarnetViewModel,
     onNavigateToNewCredit: () -> Unit,
-    onNavigateToAudit: () -> Unit,
+    onNavigateToSettings: () -> Unit,
     onSelectClient: (String) -> Unit,
     onOpenNewClientDialog: () -> Unit,
     modifier: Modifier = Modifier
@@ -98,6 +103,7 @@ fun HomeScreen(
     val allClients by viewModel.allClientsWithBalances.collectAsStateWithLifecycle()
     val globalCreances by viewModel.globalCreances.collectAsStateWithLifecycle()
     val shopName by viewModel.shopName.collectAsStateWithLifecycle()
+    val shopLogoUri by viewModel.shopLogoUri.collectAsStateWithLifecycle()
     val currency by viewModel.currency.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val currentFilter by viewModel.activeFilter.collectAsStateWithLifecycle()
@@ -113,19 +119,31 @@ fun HomeScreen(
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(MaterialTheme.colorScheme.primaryContainer),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.MenuBook,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(20.dp)
+                        if (!shopLogoUri.isNullOrBlank() && File(shopLogoUri!!).exists()) {
+                            AsyncImage(
+                                model = File(shopLogoUri!!),
+                                contentDescription = "Logo de la boutique",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .border(1.5.dp, MaterialTheme.colorScheme.primary, CircleShape)
                             )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.MenuBook,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
@@ -154,16 +172,15 @@ fun HomeScreen(
                     }
                 },
                 actions = {
-                    // Security Audit status pill button
                     Surface(
-                        color = if (isAuditValid) PaidGreenContainer else CreditRedContainer,
-                        shape = RoundedCornerShape(10.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
                             .padding(end = 12.dp)
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(RoundedCornerShape(12.dp))
                             .clickable {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                onNavigateToAudit()
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onNavigateToSettings()
                             }
                     ) {
                         Row(
@@ -171,17 +188,17 @@ fun HomeScreen(
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                         ) {
                             Icon(
-                                imageVector = if (isAuditValid) Icons.Default.VerifiedUser else Icons.Default.Security,
-                                contentDescription = "Statut audit cryptographique",
-                                tint = if (isAuditValid) PaidGreen else CreditRed,
-                                modifier = Modifier.size(15.dp)
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Paramètres de l'application",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(5.dp))
                             Text(
-                                text = if (isAuditValid) "SHA-256" else "Alerte",
+                                text = "Paramètres",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = if (isAuditValid) PaidGreen else CreditRed
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -357,11 +374,7 @@ fun HomeScreen(
 
                                 Surface(
                                     color = Color.White.copy(alpha = 0.12f),
-                                    shape = RoundedCornerShape(10.dp),
-                                    modifier = Modifier.clickable {
-                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        onNavigateToAudit()
-                                    }
+                                    shape = RoundedCornerShape(10.dp)
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -375,7 +388,7 @@ fun HomeScreen(
                                         )
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text(
-                                            text = "Journal d'Audit",
+                                            text = "Scellé SHA-256",
                                             style = MaterialTheme.typography.labelSmall,
                                             fontWeight = FontWeight.Bold,
                                             color = Color.White

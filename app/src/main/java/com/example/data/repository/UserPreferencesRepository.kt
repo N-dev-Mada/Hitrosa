@@ -21,9 +21,11 @@ class UserPreferencesRepository(private val context: Context) {
         val KEY_SHOP_NAME = stringPreferencesKey("key_shop_name")
         val KEY_CURRENCY = stringPreferencesKey("key_currency")
         val KEY_SHOP_PHONE = stringPreferencesKey("key_shop_phone")
+        val KEY_SHOP_LOGO_URI = stringPreferencesKey("key_shop_logo_uri")
         val KEY_SECURITY_PIN_ENABLED = booleanPreferencesKey("key_security_pin_enabled")
         val KEY_SECURITY_PIN = stringPreferencesKey("key_security_pin")
         val KEY_BIOMETRIC_ENABLED = booleanPreferencesKey("key_biometric_enabled")
+        val KEY_INITIAL_CLEAN_DONE = booleanPreferencesKey("key_initial_clean_done_v2")
 
         const val DEFAULT_SHOP_NAME = "Boutique Centrale"
         const val DEFAULT_CURRENCY = "Ar"
@@ -55,6 +57,14 @@ class UserPreferencesRepository(private val context: Context) {
             preferences[KEY_SHOP_PHONE] ?: ""
         }
 
+    val shopLogoUri: Flow<String?> = dataStore.data
+        .catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
+        }
+        .map { preferences ->
+            preferences[KEY_SHOP_LOGO_URI]
+        }
+
     val isSecurityPinEnabled: Flow<Boolean> = dataStore.data
         .catch { exception ->
             if (exception is IOException) emit(emptyPreferences()) else throw exception
@@ -79,11 +89,35 @@ class UserPreferencesRepository(private val context: Context) {
             preferences[KEY_BIOMETRIC_ENABLED] ?: true
         }
 
+    val isInitialCleanDone: Flow<Boolean> = dataStore.data
+        .catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
+        }
+        .map { preferences ->
+            preferences[KEY_INITIAL_CLEAN_DONE] ?: false
+        }
+
+    suspend fun markInitialCleanDone() {
+        dataStore.edit { preferences ->
+            preferences[KEY_INITIAL_CLEAN_DONE] = true
+        }
+    }
+
     suspend fun updateShopSettings(name: String, currency: String, phone: String) {
         dataStore.edit { preferences ->
             preferences[KEY_SHOP_NAME] = name.ifBlank { DEFAULT_SHOP_NAME }
             preferences[KEY_CURRENCY] = currency.ifBlank { DEFAULT_CURRENCY }
             preferences[KEY_SHOP_PHONE] = phone.trim()
+        }
+    }
+
+    suspend fun updateShopLogo(logoUri: String?) {
+        dataStore.edit { preferences ->
+            if (logoUri != null) {
+                preferences[KEY_SHOP_LOGO_URI] = logoUri
+            } else {
+                preferences.remove(KEY_SHOP_LOGO_URI)
+            }
         }
     }
 

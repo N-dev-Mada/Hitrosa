@@ -27,7 +27,7 @@ enum class Screen {
     CLIENT_DETAIL,
     NEW_CREDIT,
     NEW_PAYMENT,
-    AUDIT
+    SETTINGS
 }
 
 enum class ClientFilter {
@@ -100,6 +100,13 @@ class CarnetViewModel(application: Application) : AndroidViewModel(application) 
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = ""
+        )
+
+    val shopLogoUri: StateFlow<String?> = preferencesRepository.shopLogoUri
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null
         )
 
     // Filtering & Search
@@ -183,6 +190,15 @@ class CarnetViewModel(application: Application) : AndroidViewModel(application) 
     val lastTransactionResult: StateFlow<PostTransactionResult?> = _lastTransactionResult.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            preferencesRepository.isInitialCleanDone.collect { done ->
+                if (!done) {
+                    repository.clearAllData()
+                    preferencesRepository.markInitialCleanDone()
+                    refreshAudit()
+                }
+            }
+        }
         refreshAudit()
     }
 
@@ -239,6 +255,20 @@ class CarnetViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun updateShopLogo(logoUri: String?) {
+        viewModelScope.launch {
+            preferencesRepository.updateShopLogo(logoUri)
+        }
+    }
+
+    fun clearAllData(onSuccess: () -> Unit = {}) {
+        viewModelScope.launch {
+            repository.clearAllData()
+            refreshAudit()
+            onSuccess()
+        }
+    }
+
     fun createClient(
         nom: String,
         prenom: String? = null,
@@ -284,6 +314,7 @@ class CarnetViewModel(application: Application) : AndroidViewModel(application) 
         emissaireLien: String? = null,
         emissaireTelephone: String? = null,
         emissaireConfirmation: String? = null,
+        emissairePhotoUri: String? = null,
         onSuccess: () -> Unit
     ) {
         viewModelScope.launch {
@@ -300,7 +331,8 @@ class CarnetViewModel(application: Application) : AndroidViewModel(application) 
                 emissaireNom = emissaireNom,
                 emissaireLien = emissaireLien,
                 emissaireTelephone = emissaireTelephone,
-                emissaireConfirmation = emissaireConfirmation
+                emissaireConfirmation = emissaireConfirmation,
+                emissairePhotoUri = emissairePhotoUri
             )
 
             val client = repository.getClientById(clientId)

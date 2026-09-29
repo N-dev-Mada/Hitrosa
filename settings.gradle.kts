@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "CarnetPro"
+rootProject.name = "Hitrosa"
 
 include(":app")

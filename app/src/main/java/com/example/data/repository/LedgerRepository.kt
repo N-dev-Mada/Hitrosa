@@ -113,7 +113,8 @@ class LedgerRepository(private val database: AppDatabase) {
         emissaireNom: String? = null,
         emissaireLien: String? = null,
         emissaireTelephone: String? = null,
-        emissaireConfirmation: String? = null
+        emissaireConfirmation: String? = null,
+        emissairePhotoUri: String? = null
     ): TransactionEntity {
         return database.withTransaction {
             val lastTx = transactionDao.getLastTransaction()
@@ -126,7 +127,8 @@ class LedgerRepository(private val database: AppDatabase) {
                 dateCredit = dateCredit,
                 grandTotal = grandTotal,
                 signatureUri = signatureUri,
-                emissaireNom = if (isEmissaire) emissaireNom else null
+                emissaireNom = if (isEmissaire) emissaireNom else null,
+                emissairePhotoUri = if (isEmissaire) emissairePhotoUri else null
             )
 
             val resteAPayer = maxOf(0L, grandTotal - acompteVerse)
@@ -155,6 +157,7 @@ class LedgerRepository(private val database: AppDatabase) {
                 emissaireLien = emissaireLien,
                 emissaireTelephone = emissaireTelephone,
                 emissaireConfirmation = emissaireConfirmation,
+                emissairePhotoUri = emissairePhotoUri,
                 createdAt = System.currentTimeMillis()
             )
 
@@ -280,7 +283,7 @@ ${if (!transaction.emissaireTelephone.isNullOrBlank()) "• Tél. porteur : ${tr
 
         return """
 ═══════════════════════════
-🧾 REÇU DE CRÉDIT - CARNETPRO
+🧾 REÇU DE CRÉDIT - HITROSA
 Boutique : $shopName
 Réf : $refCode
 Date : $dateStr
@@ -346,5 +349,48 @@ $txLines
 Registre numérique sécurisé par chaînage SHA-256.
 Merci de votre confiance !
 """.trimIndent()
+    }
+
+    /**
+     * Purge intégrale du registre et réinitialisation usine (pour démarrage à blanc).
+     * Réinstalle immédiatement les triggers d'immuabilité stricts.
+     */
+    suspend fun clearAllData() {
+        val db = database.openHelper.writableDatabase
+        db.execSQL("PRAGMA foreign_keys = OFF;")
+        db.execSQL("DROP TRIGGER IF EXISTS prevent_transaction_delete;")
+        db.execSQL("DROP TRIGGER IF EXISTS prevent_transaction_update;")
+        db.execSQL("DROP TRIGGER IF EXISTS prevent_items_update;")
+        db.execSQL("DELETE FROM transaction_items;")
+        db.execSQL("DELETE FROM transactions;")
+        db.execSQL("DELETE FROM clients;")
+        db.execSQL(
+            """
+            CREATE TRIGGER IF NOT EXISTS prevent_transaction_update
+            BEFORE UPDATE ON transactions
+            BEGIN
+                SELECT RAISE(FAIL, 'SÉCURITÉ : Un crédit enregistré est immuable et ne peut pas être modifié !');
+            END;
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            CREATE TRIGGER IF NOT EXISTS prevent_transaction_delete
+            BEFORE DELETE ON transactions
+            BEGIN
+                SELECT RAISE(FAIL, 'SÉCURITÉ : Un crédit enregistré ne peut pas être supprimé !');
+            END;
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            CREATE TRIGGER IF NOT EXISTS prevent_items_update
+            BEFORE UPDATE ON transaction_items
+            BEGIN
+                SELECT RAISE(FAIL, 'SÉCURITÉ : Les lignes de facture sont immuables !');
+            END;
+            """.trimIndent()
+        )
+        db.execSQL("PRAGMA foreign_keys = ON;")
     }
 }

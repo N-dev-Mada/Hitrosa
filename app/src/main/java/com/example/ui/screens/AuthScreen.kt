@@ -127,7 +127,7 @@ fun AuthScreen(
             )
 
             val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                .setTitle("Authentification CarnetPro")
+                .setTitle("Authentification Hitrosa")
                 .setSubtitle("Déverrouillez pour accéder au carnet financier")
                 .setAllowedAuthenticators(authenticators)
                 .build()
@@ -223,7 +223,7 @@ fun AuthScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = "CarnetPro Sécurité",
+                    text = "Hitrosa Sécurité",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     color = Color.White

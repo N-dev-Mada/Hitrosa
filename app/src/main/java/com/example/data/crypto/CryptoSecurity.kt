@@ -17,7 +17,8 @@ object CryptoSecurity {
         dateCredit: Long,
         grandTotal: Long,
         signatureUri: String?,
-        emissaireNom: String? = null
+        emissaireNom: String? = null,
+        emissairePhotoUri: String? = null
     ): String {
         val payload = buildString {
             append(previousHash)
@@ -26,6 +27,7 @@ object CryptoSecurity {
             append(grandTotal)
             append(signatureUri.orEmpty())
             append(emissaireNom.orEmpty())
+            append(emissairePhotoUri.orEmpty())
         }
         val digest = MessageDigest.getInstance("SHA-256")
         val bytes = digest.digest(payload.toByteArray(Charsets.UTF_8))
@@ -84,7 +86,8 @@ object CryptoSecurity {
                 dateCredit = tx.dateCredit,
                 grandTotal = tx.grandTotal,
                 signatureUri = tx.signatureUri,
-                emissaireNom = tx.emissaireNom
+                emissaireNom = tx.emissaireNom,
+                emissairePhotoUri = tx.emissairePhotoUri
             )
             val isCurrValid = tx.currentHash.equals(recomputed, ignoreCase = true)
             val isValid = isPrevValid && isCurrValid
