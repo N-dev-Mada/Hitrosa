@@ -441,13 +441,13 @@ fun ClientDetailScreen(
                                 }
                             }
 
-                            // Share statement via WhatsApp
+                            // Share statement
                             Spacer(modifier = Modifier.height(10.dp))
                             OutlinedButton(
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     val statement = viewModel.getClientStatementText(client, solde, transactions)
-                                    WhatsAppHelper.shareViaWhatsApp(context, client.telephone, statement)
+                                    WhatsAppHelper.shareGeneral(context, statement, "Partager le relevé de compte")
                                 },
                                 shape = RoundedCornerShape(12.dp),
                                 colors = ButtonDefaults.outlinedButtonColors(
@@ -460,12 +460,12 @@ fun ClientDetailScreen(
                                 Icon(
                                     imageVector = Icons.Default.Share,
                                     contentDescription = null,
-                                    tint = Color(0xFF25D366),
+                                    tint = Color.White,
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = "Partager le relevé (WhatsApp)",
+                                    text = "Partager le relevé de compte",
                                     style = MaterialTheme.typography.labelLarge
                                 )
                             }
@@ -550,7 +550,7 @@ fun ClientDetailScreen(
                         currency = currency,
                         onShareClick = {
                             val receipt = viewModel.getTransactionReceiptText(client, txWithItems)
-                            WhatsAppHelper.shareViaWhatsApp(context, client.telephone, receipt)
+                            WhatsAppHelper.shareGeneral(context, receipt, "Partager le reçu")
                         }
                     )
                 }

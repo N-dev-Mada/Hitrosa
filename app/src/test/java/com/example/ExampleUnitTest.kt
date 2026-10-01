@@ -116,4 +116,43 @@ class ExampleUnitTest {
         assertFalse(report.isChainValid)
         assertEquals(1, report.invalidBlockIndex)
     }
+
+    @Test
+    fun `generateReferenceCode uses CR for credit and RG for reglement`() {
+        val crCode = CryptoSecurity.generateReferenceCode("1234567890abcdef", "CREDIT")
+        val rgCode = CryptoSecurity.generateReferenceCode("1234567890abcdef", "REMBOURSEMENT")
+
+        assertTrue(crCode.startsWith("CR-"))
+        assertTrue(rgCode.startsWith("RG-"))
+        assertEquals("CR-ABCDEF", crCode)
+        assertEquals("RG-ABCDEF", rgCode)
+    }
+
+    @Test
+    fun `receipt format includes required shop info and calculations`() {
+        val client = com.example.data.model.Client(
+            id = "c1",
+            nom = "Rakoto",
+            prenom = "Jean",
+            telephone = "0340000000",
+            residence = "Antananarivo"
+        )
+        val tx = TransactionEntity(
+            id = "tx123456789",
+            clientId = "c1",
+            type = "REMBOURSEMENT",
+            dateCredit = 1700000000000L,
+            grandTotal = 15000L,
+            acompteVerse = 50000L,
+            resteAPayer = 35000L,
+            raison = "Règlement par Espèces",
+            previousHash = CryptoSecurity.GENESIS_HASH,
+            currentHash = "abcd1234efgh5678"
+        )
+        // Check ref code
+        val refCode = CryptoSecurity.generateReferenceCode(tx.id, tx.type)
+        assertTrue(refCode.startsWith("RG-"))
+        assertTrue(tx.resteAPayer == 35000L)
+        assertTrue(tx.acompteVerse - tx.grandTotal == tx.resteAPayer)
+    }
 }

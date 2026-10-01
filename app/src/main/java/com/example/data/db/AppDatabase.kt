@@ -63,6 +63,7 @@ abstract class AppDatabase : RoomDatabase() {
                     "carnet_pro.db"
                 )
                     .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .fallbackToDestructiveMigration()
                     .addCallback(object : Callback() {
                         override fun onCreate(db: SupportSQLiteDatabase) {
                             super.onCreate(db)

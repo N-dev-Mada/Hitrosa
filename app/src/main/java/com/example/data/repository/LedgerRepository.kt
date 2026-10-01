@@ -8,8 +8,10 @@ import com.example.data.model.ClientWithBalance
 import com.example.data.model.TransactionEntity
 import com.example.data.model.TransactionItemEntity
 import com.example.data.model.TransactionWithItems
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -186,6 +188,7 @@ class LedgerRepository(private val database: AppDatabase) {
 
     /**
      * Enregistre un règlement / remboursement avec chaînage cryptographique
+     * Calcule précisément le solde antérieur et le nouveau restant dû.
      */
     suspend fun recordPaymentTransaction(
         clientId: String,
@@ -197,12 +200,27 @@ class LedgerRepository(private val database: AppDatabase) {
             val lastTx = transactionDao.getLastTransaction()
             val previousHash = lastTx?.currentHash ?: CryptoSecurity.GENESIS_HASH
 
+            // Calcul du solde antérieur du client
+            val clientTxs = transactionDao.getTransactionsForClientDirect(clientId)
+            var totalCredits = 0L
+            var totalRemboursements = 0L
+            clientTxs.forEach { tx ->
+                when (tx.type) {
+                    "CREDIT", "CORRECTION" -> totalCredits += tx.resteAPayer
+                    "REMBOURSEMENT" -> totalRemboursements += tx.grandTotal
+                }
+            }
+            val soldeAvant = maxOf(0L, totalCredits - totalRemboursements)
+            // Impossible de payer plus que la dette
+            val montantEffectif = if (soldeAvant > 0L) minOf(montantPaye, soldeAvant) else montantPaye
+            val soldeApres = maxOf(0L, soldeAvant - montantEffectif)
+
             val transactionId = UUID.randomUUID().toString()
             val currentHash = CryptoSecurity.calculateTransactionHash(
                 previousHash = previousHash,
                 clientId = clientId,
                 dateCredit = datePaiement,
-                grandTotal = montantPaye,
+                grandTotal = montantEffectif,
                 signatureUri = null
             )
 
@@ -212,14 +230,14 @@ class LedgerRepository(private val database: AppDatabase) {
                 type = "REMBOURSEMENT",
                 dateCredit = datePaiement,
                 dateRemboursementPrevue = null,
-                grandTotal = montantPaye,
-                acompteVerse = montantPaye,
-                resteAPayer = 0L,
-                raison = note ?: "Règlement en espèces",
+                grandTotal = montantEffectif,
+                acompteVerse = soldeAvant, // Solde avant ce règlement
+                resteAPayer = soldeApres,   // Nouveau solde restant dû
+                raison = note ?: "Règlement par Espèces",
                 signatureUri = null,
                 previousHash = previousHash,
                 currentHash = currentHash,
-                statutPaiement = "SOLDE",
+                statutPaiement = if (soldeApres == 0L) "SOLDE" else "PARTIEL",
                 isEmissaire = false,
                 emissaireNom = null,
                 emissaireLien = null,
@@ -242,7 +260,9 @@ class LedgerRepository(private val database: AppDatabase) {
     }
 
     /**
-     * Génère le texte structuré pour envoi de reçu via WhatsApp ou SMS
+     * Génère le texte structuré pour envoi de reçu
+     * Présentation en tableau avec prix unitaire pour crédit,
+     * et décompte dette antérieure/réglé/restant dû pour règlement.
      */
     fun buildWhatsAppReceipt(
         shopName: String,
@@ -253,35 +273,70 @@ class LedgerRepository(private val database: AppDatabase) {
     ): String {
         val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
         val dateStr = dateFormat.format(Date(transaction.dateCredit))
-        val refCode = CryptoSecurity.generateReferenceCode(transaction.id)
+        val refCode = CryptoSecurity.generateReferenceCode(transaction.id, transaction.type)
         val shortHash = transaction.currentHash.take(12)
+        val cinSection = if (!client.cin.isNullOrBlank()) "CIN : ${client.cin}\n" else ""
+        val numberFormatter = java.text.NumberFormat.getNumberInstance(Locale.FRANCE)
 
-        val itemsSection = if (items.isNotEmpty()) {
-            items.joinToString("\n") { item ->
-                "• ${item.quantite}x ${item.designation} (${item.totalLigne} $currency)"
-            }
+        if (transaction.type == "REMBOURSEMENT") {
+            val soldeAvant = transaction.acompteVerse
+            val montantRegle = transaction.grandTotal
+            val restantDu = transaction.resteAPayer
+            val modeReglement = transaction.raison?.ifBlank { "Règlement par Espèces" } ?: "Règlement par Espèces"
+
+            return """
+═══════════════════════════
+🧾 REÇU DE RÈGLEMENT - HITROSA
+Boutique : $shopName
+Réf : $refCode
+Date : $dateStr
+═══════════════════════════
+Client Titulaire : ${client.nomComplet}
+Tél : ${client.telephone}
+${cinSection}Résidence : ${client.residence}
+───────────────────────────
+DÉTAIL DE L'OPÉRATION :
+• $modeReglement
+───────────────────────────
+Dette Antérieure  : ${numberFormatter.format(soldeAvant)} $currency
+Montant Réglé     : ${numberFormatter.format(montantRegle)} $currency
+RESTANT DÛ        : ${numberFormatter.format(restantDu)} $currency
+${if (restantDu == 0L) "✅ COMPTE CLIENT TOTALEMENT SOLDÉ\n" else ""}───────────────────────────
+🔒 Sceau SHA-256 : $shortHash...
+Reçu de paiement numérique certifié
+═══════════════════════════
+Ce carnet numérique est infalsifiable et fait foi.
+""".trimIndent()
         } else {
-            "• ${transaction.raison ?: "Opération de crédit"}"
-        }
+            val itemsSection = if (items.isNotEmpty()) {
+                val header = "Désignation          Qté x P.U.        Total\n───────────────────────────"
+                val rows = items.joinToString("\n") { item ->
+                    val qtyStr = if (item.quantite % 1.0 == 0.0) item.quantite.toInt().toString() else item.quantite.toString()
+                    val puStr = "${numberFormatter.format(item.prixUnitaire)} $currency"
+                    val totStr = "${numberFormatter.format(item.totalLigne)} $currency"
+                    "• ${item.designation}\n  └─ $qtyStr x $puStr = $totStr"
+                }
+                "$header\n$rows"
+            } else {
+                "• ${transaction.raison ?: "Opération de crédit"}"
+            }
 
-        val echeanceSection = transaction.dateRemboursementPrevue?.let {
-            val dueStr = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date(it))
-            "📅 Échéance Convenue : $dueStr\n"
-        } ?: ""
+            val echeanceSection = transaction.dateRemboursementPrevue?.let {
+                val dueStr = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date(it))
+                "📅 Échéance Convenue : $dueStr\n"
+            } ?: ""
 
-        val emissaireSection = if (transaction.isEmissaire && !transaction.emissaireNom.isNullOrBlank()) {
-            """
+            val emissaireSection = if (transaction.isEmissaire && !transaction.emissaireNom.isNullOrBlank()) {
+                """
 🚶 RETRAIT PAR MANDATAIRE / ÉMISSAIRE :
 • Nom du porteur : ${transaction.emissaireNom}
 • Lien avec le client : ${transaction.emissaireLien ?: "Proche / Envoyé"}
 ${if (!transaction.emissaireTelephone.isNullOrBlank()) "• Tél. porteur : ${transaction.emissaireTelephone}\n" else ""}• Autorisation : ${transaction.emissaireConfirmation ?: "Accord confirmé"}
 ───────────────────────────
 """
-        } else ""
+            } else ""
 
-        val cinSection = if (!client.cin.isNullOrBlank()) "CIN : ${client.cin}\n" else ""
-
-        return """
+            return """
 ═══════════════════════════
 🧾 REÇU DE CRÉDIT - HITROSA
 Boutique : $shopName
@@ -295,15 +350,16 @@ ${cinSection}Résidence : ${client.residence}
 $emissaireSection DÉTAIL DES ARTICLES :
 $itemsSection
 ───────────────────────────
-Total Facture   : ${transaction.grandTotal} $currency
-Acompte Versé   : ${transaction.acompteVerse} $currency
-RESTANT DÛ      : ${transaction.resteAPayer} $currency
+Total Facture   : ${numberFormatter.format(transaction.grandTotal)} $currency
+Acompte Versé   : ${numberFormatter.format(transaction.acompteVerse)} $currency
+RESTANT DÛ      : ${numberFormatter.format(transaction.resteAPayer)} $currency
 $echeanceSection───────────────────────────
 🔒 Sceau SHA-256 : $shortHash...
 ${if (transaction.isEmissaire) "Signature du Porteur Enregistrée" else "Signature Numérique Client Enregistrée"}
 ═══════════════════════════
 Ce carnet numérique est infalsifiable et fait foi.
 """.trimIndent()
+        }
     }
 
     /**
@@ -318,15 +374,16 @@ Ce carnet numérique est infalsifiable et fait foi.
     ): String {
         val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
         val dateToday = dateFormat.format(Date())
+        val numberFormatter = java.text.NumberFormat.getNumberInstance(Locale.FRANCE)
 
         val txLines = transactions.take(10).joinToString("\n") { txWithItems ->
             val tx = txWithItems.transaction
             val dt = dateFormat.format(Date(tx.dateCredit))
             val emissaireTag = if (tx.isEmissaire && !tx.emissaireNom.isNullOrBlank()) " [via ${tx.emissaireNom}]" else ""
             if (tx.type == "CREDIT") {
-                "• $dt [CRÉDIT] +${tx.resteAPayer} $currency$emissaireTag"
+                "• $dt [CRÉDIT] +${numberFormatter.format(tx.resteAPayer)} $currency$emissaireTag"
             } else {
-                "• $dt [RÈGLEMENT] -${tx.grandTotal} $currency"
+                "• $dt [RÈGLEMENT] -${numberFormatter.format(tx.grandTotal)} $currency"
             }
         }
 
@@ -340,7 +397,7 @@ Client : ${client.nomComplet}
 Tél : ${client.telephone}
 Résidence : ${client.residence}
 ───────────────────────────
-SOLDE ACTUEL DÛ : $soldeDu $currency
+SOLDE ACTUEL DÛ : ${numberFormatter.format(soldeDu)} $currency
 Statut : ${if (soldeDu > 0) "⚠️ EN DETTE" else "✅ COMPTE SOLDÉ"}
 ───────────────────────────
 DERNIÈRES OPÉRATIONS :
@@ -353,44 +410,54 @@ Merci de votre confiance !
 
     /**
      * Purge intégrale du registre et réinitialisation usine (pour démarrage à blanc).
-     * Réinstalle immédiatement les triggers d'immuabilité stricts.
+     * Supprime toutes les données ajoutées par l'utilisateur et fichiers associés.
+     * Notifie Room InvalidationTracker pour que l'interface se mette immédiatement à jour.
      */
-    suspend fun clearAllData() {
-        val db = database.openHelper.writableDatabase
-        db.execSQL("PRAGMA foreign_keys = OFF;")
-        db.execSQL("DROP TRIGGER IF EXISTS prevent_transaction_delete;")
-        db.execSQL("DROP TRIGGER IF EXISTS prevent_transaction_update;")
-        db.execSQL("DROP TRIGGER IF EXISTS prevent_items_update;")
-        db.execSQL("DELETE FROM transaction_items;")
-        db.execSQL("DELETE FROM transactions;")
-        db.execSQL("DELETE FROM clients;")
-        db.execSQL(
-            """
-            CREATE TRIGGER IF NOT EXISTS prevent_transaction_update
-            BEFORE UPDATE ON transactions
-            BEGIN
-                SELECT RAISE(FAIL, 'SÉCURITÉ : Un crédit enregistré est immuable et ne peut pas être modifié !');
-            END;
-            """.trimIndent()
-        )
-        db.execSQL(
-            """
-            CREATE TRIGGER IF NOT EXISTS prevent_transaction_delete
-            BEFORE DELETE ON transactions
-            BEGIN
-                SELECT RAISE(FAIL, 'SÉCURITÉ : Un crédit enregistré ne peut pas être supprimé !');
-            END;
-            """.trimIndent()
-        )
-        db.execSQL(
-            """
-            CREATE TRIGGER IF NOT EXISTS prevent_items_update
-            BEFORE UPDATE ON transaction_items
-            BEGIN
-                SELECT RAISE(FAIL, 'SÉCURITÉ : Les lignes de facture sont immuables !');
-            END;
-            """.trimIndent()
-        )
-        db.execSQL("PRAGMA foreign_keys = ON;")
+    suspend fun clearAllData(filesDir: java.io.File? = null) = withContext(Dispatchers.IO) {
+        try {
+            val db = database.openHelper.writableDatabase
+            db.execSQL("PRAGMA foreign_keys = OFF;")
+            db.execSQL("DROP TRIGGER IF EXISTS prevent_transaction_delete;")
+            db.execSQL("DROP TRIGGER IF EXISTS prevent_transaction_update;")
+            db.execSQL("DROP TRIGGER IF EXISTS prevent_items_update;")
+            database.clearAllTables()
+            db.execSQL(
+                """
+                CREATE TRIGGER IF NOT EXISTS prevent_transaction_update
+                BEFORE UPDATE ON transactions
+                BEGIN
+                    SELECT RAISE(FAIL, 'SÉCURITÉ : Un crédit enregistré est immuable et ne peut pas être modifié !');
+                END;
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                CREATE TRIGGER IF NOT EXISTS prevent_transaction_delete
+                BEFORE DELETE ON transactions
+                BEGIN
+                    SELECT RAISE(FAIL, 'SÉCURITÉ : Un crédit enregistré ne peut pas être supprimé !');
+                END;
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                CREATE TRIGGER IF NOT EXISTS prevent_items_update
+                BEFORE UPDATE ON transaction_items
+                BEGIN
+                    SELECT RAISE(FAIL, 'SÉCURITÉ : Les lignes de facture sont immuables !');
+                END;
+                """.trimIndent()
+            )
+            db.execSQL("PRAGMA foreign_keys = ON;")
+
+            // Supprime les fichiers images et signatures créés localement
+            filesDir?.listFiles()?.forEach { file ->
+                if (file.isFile && (file.name.endsWith(".png") || file.name.endsWith(".jpg") || file.name.endsWith(".jpeg") || file.name.endsWith(".json"))) {
+                    file.delete()
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 }

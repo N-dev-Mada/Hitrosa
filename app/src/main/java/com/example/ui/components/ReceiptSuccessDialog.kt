@@ -55,19 +55,20 @@ fun ReceiptSuccessDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    val refCode = CryptoSecurity.generateReferenceCode(transaction.id)
+    val refCode = CryptoSecurity.generateReferenceCode(transaction.id, transaction.type)
     val numberFormatter = NumberFormat.getNumberInstance(Locale.FRANCE)
+    val isCredit = transaction.type == "CREDIT"
 
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             Button(
                 onClick = {
-                    WhatsAppHelper.shareViaWhatsApp(context, client.telephone, receiptText)
+                    WhatsAppHelper.shareGeneral(context, receiptText, "Partager le reçu")
                     onDismiss()
                 },
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF25D366) // WhatsApp official green
+                    containerColor = if (isCredit) MaterialTheme.colorScheme.primary else PaidGreen
                 ),
                 shape = RoundedCornerShape(10.dp)
             ) {
@@ -77,24 +78,12 @@ fun ReceiptSuccessDialog(
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Reçu WhatsApp", color = Color.White)
+                Text("Partager le reçu", color = Color.White)
             }
         },
         dismissButton = {
-            Row {
-                OutlinedButton(
-                    onClick = {
-                        WhatsAppHelper.shareGeneral(context, receiptText)
-                        onDismiss()
-                    },
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Text("Autre / SMS")
-                }
-                Spacer(modifier = Modifier.width(6.dp))
-                TextButton(onClick = onDismiss) {
-                    Text("Fermer")
-                }
+            TextButton(onClick = onDismiss) {
+                Text("Fermer")
             }
         },
         title = {
@@ -103,20 +92,20 @@ fun ReceiptSuccessDialog(
                     modifier = Modifier
                         .size(36.dp)
                         .clip(CircleShape)
-                        .background(PaidGreenLight),
+                        .background(if (isCredit) MaterialTheme.colorScheme.primaryContainer else PaidGreenLight),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = null,
-                        tint = PaidGreen,
+                        tint = if (isCredit) MaterialTheme.colorScheme.primary else PaidGreen,
                         modifier = Modifier.size(24.dp)
                     )
                 }
                 Spacer(modifier = Modifier.width(10.dp))
                 Column {
                     Text(
-                        text = if (transaction.type == "CREDIT") "Crédit Scellé !" else "Paiement Enregistré !",
+                        text = if (isCredit) "Crédit Scellé !" else "Règlement Enregistré !",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -156,13 +145,13 @@ fun ReceiptSuccessDialog(
                         ) {
                             Text("Client :", style = MaterialTheme.typography.bodySmall)
                             Text(
-                                client.nom,
+                                client.nomComplet,
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.Bold
                             )
                         }
 
-                        if (transaction.type == "CREDIT") {
+                        if (isCredit) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
@@ -200,12 +189,50 @@ fun ReceiptSuccessDialog(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text("Montant Encaissé :", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = PaidGreen)
+                                Text("Mode :", style = MaterialTheme.typography.bodySmall)
                                 Text(
-                                    "${numberFormatter.format(transaction.grandTotal)} $currency",
+                                    transaction.raison ?: "Espèces",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Dette Antérieure :", style = MaterialTheme.typography.bodySmall)
+                                Text(
+                                    "${numberFormatter.format(transaction.acompteVerse)} $currency",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Montant Réglé :", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = PaidGreen)
+                                Text(
+                                    "-${numberFormatter.format(transaction.grandTotal)} $currency",
                                     style = MaterialTheme.typography.bodyMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = PaidGreen
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    "RESTANT DÛ :",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (transaction.resteAPayer == 0L) PaidGreen else CreditRed
+                                )
+                                Text(
+                                    if (transaction.resteAPayer == 0L) "0 $currency (SOLDÉ ✅)" else "${numberFormatter.format(transaction.resteAPayer)} $currency",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (transaction.resteAPayer == 0L) PaidGreen else CreditRed
                                 )
                             }
                         }

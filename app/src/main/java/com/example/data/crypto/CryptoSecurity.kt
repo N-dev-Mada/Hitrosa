@@ -35,12 +35,13 @@ object CryptoSecurity {
     }
 
     /**
-     * Génère un code de reçu unique et lisible, ex: CR-9A4B1F
+     * Génère un code de reçu unique et lisible, ex: CR-9A4B1F pour crédit, RG-9A4B1F pour règlement
      */
-    fun generateReferenceCode(transactionId: String): String {
+    fun generateReferenceCode(transactionId: String, type: String = "CREDIT"): String {
+        val prefix = if (type == "REMBOURSEMENT") "RG" else "CR"
         val cleaned = transactionId.replace("-", "").uppercase()
         val suffix = if (cleaned.length >= 6) cleaned.takeLast(6) else cleaned.padStart(6, '0')
-        return "CR-$suffix"
+        return "$prefix-$suffix"
     }
 
     data class AuditBlockResult(

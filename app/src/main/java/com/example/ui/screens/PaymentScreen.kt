@@ -95,10 +95,13 @@ fun PaymentScreen(
     val soldeActuel = selectedClient?.soldeDu ?: 0L
 
     var montantInput by remember { mutableStateOf("") }
-    var noteInput by remember { mutableStateOf("Règlement en espèces") }
+    var selectedMode by remember { mutableStateOf("Espèces") }
+    var noteInput by remember { mutableStateOf("Règlement par Espèces") }
     var isSubmitting by remember { mutableStateOf(false) }
 
     val montantPaye = montantInput.toLongOrNull() ?: 0L
+    val isExceedingDebt = soldeActuel > 0 && montantPaye > soldeActuel
+    val hasNoDebt = soldeActuel <= 0L
     val soldeRestantApres = maxOf(0L, soldeActuel - montantPaye)
     val isFullyCleared = soldeActuel > 0 && montantPaye >= soldeActuel
     val numberFormatter = NumberFormat.getNumberInstance(Locale.FRANCE)
@@ -276,6 +279,29 @@ fun PaymentScreen(
 
                         Spacer(modifier = Modifier.height(10.dp))
 
+                        if (hasNoDebt) {
+                            Surface(
+                                color = PaidGreenContainer,
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = PaidGreen, modifier = Modifier.size(20.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Ce client n'a aucune dette en cours (0 $currency). Aucun règlement n'est nécessaire.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = PaidGreen,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(10.dp))
+                        }
+
                         OutlinedTextField(
                             value = montantInput,
                             onValueChange = { montantInput = it },
@@ -283,6 +309,16 @@ fun PaymentScreen(
                             placeholder = { Text("0") },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             singleLine = true,
+                            isError = isExceedingDebt,
+                            supportingText = {
+                                if (isExceedingDebt) {
+                                    Text(
+                                        text = "⚠️ Règlement supérieur à la dette actuelle (${numberFormatter.format(soldeActuel)} $currency) !",
+                                        color = CreditRed,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            },
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(
@@ -294,28 +330,33 @@ fun PaymentScreen(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         // Quick amount suggestions
-                        val suggestions = listOf(1000L, 2000L, 5000L, 10000L, 25000L, 50000L)
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            items(suggestions.size) { i ->
-                                val amt = suggestions[i]
-                                Surface(
-                                    color = if (montantPaye == amt) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.clickable {
-                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        montantInput = amt.toString()
-                                    }
+                        if (soldeActuel > 0L) {
+                            val allPossibleSuggestions = listOf(1000L, 2000L, 5000L, 10000L, 25000L, 50000L)
+                            val suggestions = allPossibleSuggestions.filter { it <= soldeActuel }
+                            if (suggestions.isNotEmpty()) {
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Text(
-                                        text = "+${numberFormatter.format(amt)}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (montantPaye == amt) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                                    )
+                                    items(suggestions.size) { i ->
+                                        val amt = suggestions[i]
+                                        Surface(
+                                            color = if (montantPaye == amt) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
+                                            shape = RoundedCornerShape(8.dp),
+                                            modifier = Modifier.clickable {
+                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                montantInput = amt.toString()
+                                            }
+                                        ) {
+                                            Text(
+                                                text = "+${numberFormatter.format(amt)}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (montantPaye == amt) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -330,18 +371,25 @@ fun PaymentScreen(
                         )
                         Spacer(modifier = Modifier.height(6.dp))
 
-                        val modes = listOf("Espèces", "Wave", "Orange Money", "MTN Money", "Virement")
+                        val modes = listOf("Espèces", "MVola", "Orange Money", "Airtel Money", "Autre")
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             items(modes.size) { i ->
                                 val mode = modes[i]
-                                val selected = noteInput.contains(mode)
+                                val selected = selectedMode == mode
                                 FilterChip(
                                     selected = selected,
                                     onClick = {
                                         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        noteInput = "Règlement par $mode"
+                                        selectedMode = mode
+                                        if (mode == "Autre") {
+                                            if (noteInput.startsWith("Règlement par ")) {
+                                                noteInput = ""
+                                            }
+                                        } else {
+                                            noteInput = "Règlement par $mode"
+                                        }
                                     },
-                                    label = { Text(mode) },
+                                    label = { Text(if (mode == "Autre") "Autre (Saisir à la main)" else mode) },
                                     shape = RoundedCornerShape(8.dp)
                                 )
                             }
@@ -352,7 +400,8 @@ fun PaymentScreen(
                         OutlinedTextField(
                             value = noteInput,
                             onValueChange = { noteInput = it },
-                            label = { Text("Justificatif / Note") },
+                            label = { Text(if (selectedMode == "Autre") "Saisir le mode ou motif personnalisé *" else "Justificatif / Note") },
+                            placeholder = { if (selectedMode == "Autre") Text("Ex: Virement bancaire, Chèque, etc.") else null },
                             singleLine = true,
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth()
@@ -433,9 +482,23 @@ fun PaymentScreen(
                             Toast.makeText(context, "Veuillez sélectionner un client", Toast.LENGTH_SHORT).show()
                             return@Button
                         }
+                        if (hasNoDebt) {
+                            Toast.makeText(context, "Ce client n'a aucune dette en cours", Toast.LENGTH_SHORT).show()
+                            return@Button
+                        }
                         if (montantPaye <= 0L) {
                             Toast.makeText(context, "Veuillez saisir un montant supérieur à zéro", Toast.LENGTH_SHORT).show()
                             return@Button
+                        }
+                        if (isExceedingDebt) {
+                            Toast.makeText(context, "Impossible de régler plus que la dette (${numberFormatter.format(soldeActuel)} $currency) !", Toast.LENGTH_LONG).show()
+                            return@Button
+                        }
+
+                        val finalNote = if (selectedMode == "Autre" && noteInput.isNotBlank()) {
+                            "Règlement par ${noteInput.trim()}"
+                        } else {
+                            noteInput.ifBlank { "Règlement par Espèces" }
                         }
 
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -443,7 +506,7 @@ fun PaymentScreen(
                         viewModel.recordPayment(
                             clientId = selectedClientId!!,
                             montant = montantPaye,
-                            note = noteInput.ifBlank { null },
+                            note = finalNote,
                             onSuccess = {
                                 isSubmitting = false
                                 Toast.makeText(context, "Règlement scellé et enregistré !", Toast.LENGTH_SHORT).show()
@@ -453,7 +516,7 @@ fun PaymentScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = PaidGreen),
                     shape = RoundedCornerShape(16.dp),
-                    enabled = !isSubmitting,
+                    enabled = !isSubmitting && montantPaye > 0L && !isExceedingDebt && !hasNoDebt,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)

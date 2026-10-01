@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.json.JSONArray
@@ -191,15 +192,12 @@ class CarnetViewModel(application: Application) : AndroidViewModel(application) 
 
     init {
         viewModelScope.launch {
-            preferencesRepository.isInitialCleanDone.collect { done ->
-                if (!done) {
-                    repository.clearAllData()
-                    preferencesRepository.markInitialCleanDone()
-                    refreshAudit()
-                }
+            if (!preferencesRepository.isInitialCleanDone.first()) {
+                repository.clearAllData()
+                preferencesRepository.markInitialCleanDone()
             }
+            refreshAudit()
         }
-        refreshAudit()
     }
 
     fun unlockApp() {
@@ -263,7 +261,10 @@ class CarnetViewModel(application: Application) : AndroidViewModel(application) 
 
     fun clearAllData(onSuccess: () -> Unit = {}) {
         viewModelScope.launch {
-            repository.clearAllData()
+            repository.clearAllData(getApplication<Application>().filesDir)
+            _selectedClientId.value = null
+            _clientTransactions.value = emptyList()
+            _lastTransactionResult.value = null
             refreshAudit()
             onSuccess()
         }

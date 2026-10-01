@@ -98,7 +98,7 @@ fun TransactionCard(
 
     val dateFormat = SimpleDateFormat("dd/MM/yyyy • HH:mm", Locale.getDefault())
     val dateStr = dateFormat.format(Date(tx.dateCredit))
-    val refCode = CryptoSecurity.generateReferenceCode(tx.id)
+    val refCode = CryptoSecurity.generateReferenceCode(tx.id, tx.type)
     val numberFormatter = NumberFormat.getNumberInstance(Locale.FRANCE)
 
     ElevatedCard(
@@ -200,8 +200,67 @@ fun TransactionCard(
                 }
             }
 
-            // Reason note if present
-            if (!tx.raison.isNullOrBlank()) {
+            // Settlement details for REMBOURSEMENT or Reason note for CREDIT
+            if (isRemboursement) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    color = PaidGreenLight.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Solde avant règlement :",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "${numberFormatter.format(tx.acompteVerse)} $currency",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Mode de règlement :",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = tx.raison ?: "Espèces",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = PaidGreen
+                            )
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Nouveau solde restant :",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (tx.resteAPayer == 0L) PaidGreen else CreditRed
+                            )
+                            Text(
+                                text = if (tx.resteAPayer == 0L) "0 $currency (Soldé ✅)" else "${numberFormatter.format(tx.resteAPayer)} $currency",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Black,
+                                color = if (tx.resteAPayer == 0L) PaidGreen else CreditRed
+                            )
+                        }
+                    }
+                }
+            } else if (!tx.raison.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceContainer,
@@ -298,23 +357,65 @@ fun TransactionCard(
 
                     if (items.isNotEmpty()) {
                         Text(
-                            text = "Articles enregistrés (${items.size}) :",
+                            text = "Détail des articles (${items.size}) :",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        items.forEach { item ->
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        // Table header
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainer,
+                            shape = RoundedCornerShape(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 3.dp),
+                                    .padding(horizontal = 8.dp, vertical = 4.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
-                                    text = "• ${item.quantite}x ${item.designation} (${numberFormatter.format(item.prixUnitaire)} $currency)",
+                                    text = "Désignation",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.weight(1.2f)
+                                )
+                                Text(
+                                    text = "Qté x P.U.",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = "Total",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+                        items.forEach { item ->
+                            val qtyStr = if (item.quantite % 1.0 == 0.0) item.quantite.toInt().toString() else item.quantite.toString()
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "• ${item.designation}",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.weight(1.2f)
+                                )
+                                Text(
+                                    text = "$qtyStr x ${numberFormatter.format(item.prixUnitaire)} $currency",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.weight(1f)
                                 )
                                 Text(

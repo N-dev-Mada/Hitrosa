@@ -4,44 +4,24 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
-import java.net.URLEncoder
 
 object WhatsAppHelper {
 
+    /**
+     * Ouvre le sélecteur Android natif (Intent.createChooser) pour laisser à l'utilisateur
+     * le choix total de l'application sur laquelle partager (WhatsApp, SMS, Mail, Notes, etc.)
+     */
     fun shareViaWhatsApp(context: Context, phoneNumber: String?, message: String) {
-        try {
-            val cleanPhone = phoneNumber?.replace(Regex("[^0-9+]"), "")
-            if (!cleanPhone.isNullOrBlank()) {
-                val encodedMessage = URLEncoder.encode(message, "UTF-8")
-                val url = "https://api.whatsapp.com/send?phone=$cleanPhone&text=$encodedMessage"
-                val intent = Intent(Intent.ACTION_VIEW).apply {
-                    data = Uri.parse(url)
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                }
-                context.startActivity(intent)
-            } else {
-                // If phone is missing, open generic WhatsApp share
-                val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_TEXT, message)
-                    setPackage("com.whatsapp")
-                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                }
-                context.startActivity(sendIntent)
-            }
-        } catch (e: Exception) {
-            // WhatsApp is not installed or error, fall back to Android Chooser
-            shareGeneral(context, message)
-        }
+        shareGeneral(context, message, "Partager via...")
     }
 
-    fun shareGeneral(context: Context, message: String) {
+    fun shareGeneral(context: Context, message: String, title: String = "Partager le reçu") {
         try {
             val sendIntent = Intent(Intent.ACTION_SEND).apply {
                 type = "text/plain"
                 putExtra(Intent.EXTRA_TEXT, message)
             }
-            val chooser = Intent.createChooser(sendIntent, "Partager le reçu")
+            val chooser = Intent.createChooser(sendIntent, title)
             chooser.flags = Intent.FLAG_ACTIVITY_NEW_TASK
             context.startActivity(chooser)
         } catch (e: Exception) {

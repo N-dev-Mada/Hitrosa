@@ -33,6 +33,9 @@ interface TransactionDao {
     @Query("SELECT * FROM transactions ORDER BY date_credit DESC, created_at DESC LIMIT 1")
     suspend fun getLastTransaction(): TransactionEntity?
 
+    @Query("SELECT * FROM transactions WHERE client_id = :clientId ORDER BY date_credit ASC, created_at ASC")
+    suspend fun getTransactionsForClientDirect(clientId: String): List<TransactionEntity>
+
     @Transaction
     @Query("SELECT * FROM transactions WHERE id = :transactionId LIMIT 1")
     suspend fun getTransactionWithItemsById(transactionId: String): TransactionWithItems?

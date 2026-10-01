@@ -104,35 +104,42 @@ fun AuthScreen(
 
     fun launchBiometrics() {
         if (activity == null || !isBiometricEnabled) return
+        try {
+            val biometricManager = BiometricManager.from(context)
+            val authenticators = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+            } else {
+                BiometricManager.Authenticators.BIOMETRIC_WEAK
+            }
 
-        val biometricManager = BiometricManager.from(context)
-        val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+            if (biometricManager.canAuthenticate(authenticators) == BiometricManager.BIOMETRIC_SUCCESS) {
+                val executor = ContextCompat.getMainExecutor(context)
+                val prompt = BiometricPrompt(
+                    activity,
+                    executor,
+                    object : BiometricPrompt.AuthenticationCallback() {
+                        override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                            super.onAuthenticationSucceeded(result)
+                            onAuthenticated()
+                        }
 
-        if (biometricManager.canAuthenticate(authenticators) == BiometricManager.BIOMETRIC_SUCCESS) {
-            val executor = ContextCompat.getMainExecutor(context)
-            val prompt = BiometricPrompt(
-                activity,
-                executor,
-                object : BiometricPrompt.AuthenticationCallback() {
-                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                        super.onAuthenticationSucceeded(result)
-                        onAuthenticated()
+                        override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                            super.onAuthenticationError(errorCode, errString)
+                            // Error or user cancelled, stays on PIN screen
+                        }
                     }
+                )
 
-                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                        super.onAuthenticationError(errorCode, errString)
-                        // Error or user cancelled, stays on PIN screen
-                    }
-                }
-            )
+                val promptInfo = BiometricPrompt.PromptInfo.Builder()
+                    .setTitle("Authentification Hitrosa")
+                    .setSubtitle("Déverrouillez pour accéder au carnet financier")
+                    .setAllowedAuthenticators(authenticators)
+                    .build()
 
-            val promptInfo = BiometricPrompt.PromptInfo.Builder()
-                .setTitle("Authentification Hitrosa")
-                .setSubtitle("Déverrouillez pour accéder au carnet financier")
-                .setAllowedAuthenticators(authenticators)
-                .build()
-
-            prompt.authenticate(promptInfo)
+                prompt.authenticate(promptInfo)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
